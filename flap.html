@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Flappy Bird</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body{
+margin:0;
+overflow:hidden;
+font-family:Arial;
+background:linear-gradient(#70c5ce,#a0e9ff);
+}
+
+canvas{
+display:block;
+margin:auto;
+}
+
+#score{
+position:absolute;
+top:20px;
+width:100%;
+text-align:center;
+font-size:40px;
+color:white;
+font-weight:bold;
+}
+
+#startScreen{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+text-align:center;
+color:white;
+font-size:35px;
+}
+
+#gameOver{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+text-align:center;
+display:none;
+}
+
+#gameOverBox{
+background:white;
+padding:30px;
+border-radius:12px;
+box-shadow:0 10px 30px rgba(0,0,0,0.4);
+text-align:center;
+}
+
+#gameOverBox img{
+width:160px;
+margin-bottom:10px;
+}
+
+.redText{
+color:red;
+font-weight:bold;
+font-size:26px;
+}
+
+button{
+padding:12px 25px;
+font-size:20px;
+cursor:pointer;
+margin-top:10px;
+border:none;
+background:#2ecc71;
+color:white;
+border-radius:6px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="score">0</div>
+
+<div id="startScreen">
+FLAPPY BIRD<br>
+<button onclick="startGame()">Start Game</button>
+</div>
+
+<div id="gameOver">
+<div id="gameOverBox">
+
+<img src="busted.png">
+
+<div class="redText">BUSTED</div>
+<div class="redText">You'll get a BIG ZERO</div>
+
+<button onclick="restart()">Restart</button>
+
+</div>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+/* Responsive canvas */
+
+canvas.width=Math.min(window.innerWidth,420);
+canvas.height=Math.min(window.innerHeight,600);
+
+/* Images */
+
+const birdImg=new Image();
+birdImg.src="bird.png";
+
+/* Sounds */
+
+const flySound=new Audio("fly.wav");
+flySound.loop=true;
+flySound.volume=0.4;
+
+const hitSound=new Audio("hit.wav");
+const pointSound=new Audio("point.wav");
+
+/* Bird */
+
+let bird={
+x:100,
+y:250,
+width:90,
+height:90,
+gravity:0.5,
+lift:-9,
+velocity:0
+};
+
+let pipes=[];
+let pipeWidth=40;
+let gap=bird.height*2+40;
+let pipeSpeed=2;
+
+let score=0;
+let particles=[];
+let gameRunning=false;
+
+let locations=[
+"NayandanaHalli",
+"R R Nagar",
+"Majestic",
+"Arad",
+"Bucharest"
+];
+
+let locationIndex=0;
+
+/* Particle effect */
+
+function createParticles(){
+
+for(let i=0;i<5;i++){
+
+particles.push({
+x:bird.x+bird.width/2,
+y:bird.y+bird.height/2,
+vx:(Math.random()*2)-1,
+vy:Math.random()*2,
+life:20
+})
+
+}
+
+}
+
+function drawParticles(){
+
+for(let i=0;i<particles.length;i++){
+
+let p=particles[i];
+
+ctx.fillStyle="rgba(255,255,255,0.8)";
+ctx.beginPath();
+ctx.arc(p.x,p.y,3,0,Math.PI*2);
+ctx.fill();
+
+p.x+=p.vx;
+p.y+=p.vy;
+p.life--;
+
+}
+
+particles=particles.filter(p=>p.life>0);
+
+}
+
+/* Pipe creation */
+
+function createPipe(){
+
+let margin=80;
+
+let minTop=margin;
+let maxTop=canvas.height-gap-margin;
+
+let topHeight=Math.random()*(maxTop-minTop)+minTop;
+
+let name=locations[locationIndex];
+
+locationIndex=(locationIndex+1)%locations.length;
+
+pipes.push({
+x:canvas.width,
+top:topHeight,
+bottom:canvas.height-topHeight-gap,
+passed:false,
+name:name
+});
+
+}
+
+setInterval(()=>{
+if(gameRunning) createPipe();
+},1600);
+
+/* Controls */
+
+document.addEventListener("keydown",jump);
+document.addEventListener("click",jump);
+document.addEventListener("touchstart",jump);
+
+function jump(){
+
+if(!gameRunning)return;
+
+bird.velocity=bird.lift;
+
+createParticles();
+
+}
+
+/* Background clouds */
+
+function drawBackground(){
+
+ctx.fillStyle="rgba(255,255,255,0.6)";
+
+ctx.beginPath();
+ctx.arc(100,80,40,0,Math.PI*2);
+ctx.arc(140,80,40,0,Math.PI*2);
+ctx.fill();
+
+ctx.beginPath();
+ctx.arc(320,120,35,0,Math.PI*2);
+ctx.arc(350,120,35,0,Math.PI*2);
+ctx.fill();
+
+}
+
+/* Game update */
+
+function update(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height);
+
+drawBackground();
+
+bird.velocity+=bird.gravity;
+bird.y+=bird.velocity;
+
+/* Circular bird */
+
+ctx.save();
+
+ctx.beginPath();
+ctx.arc(
+bird.x+bird.width/2,
+bird.y+bird.height/2,
+bird.width/2,
+0,
+Math.PI*2
+);
+ctx.clip();
+
+ctx.drawImage(
+birdImg,
+bird.x,
+bird.y,
+bird.width,
+bird.height
+);
+
+ctx.restore();
+
+drawParticles();
+
+/* Pipes */
+
+for(let i=0;i<pipes.length;i++){
+
+let p=pipes[i];
+
+p.x-=pipeSpeed;
+
+ctx.fillStyle="#2ecc71";
+
+ctx.fillRect(p.x,0,pipeWidth,p.top);
+
+ctx.fillRect(
+p.x,
+canvas.height-p.bottom,
+pipeWidth,
+p.bottom
+);
+
+/* Pipe labels */
+
+ctx.fillStyle="white";
+ctx.font="14px Arial";
+ctx.textAlign="center";
+
+ctx.fillText(p.name,p.x+pipeWidth/2,p.top/2);
+
+ctx.fillText(
+p.name,
+p.x+pipeWidth/2,
+canvas.height-p.bottom/2
+);
+
+/* Collision */
+
+if(
+bird.x+15<p.x+pipeWidth &&
+bird.x+bird.width-15>p.x &&
+(bird.y+15<p.top || bird.y+bird.height-15>canvas.height-p.bottom)
+){
+gameOver();
+}
+
+/* Scoring */
+
+if(!p.passed && p.x+pipeWidth<bird.x){
+
+p.passed=true;
+score++;
+
+pointSound.play();
+
+document.getElementById("score").innerText=score;
+
+if(score%5===0) pipeSpeed+=0.2;
+
+}
+
+/* Remove pipes */
+
+if(p.x+pipeWidth<0){
+pipes.splice(i,1);
+i--;
+}
+
+}
+
+if(bird.y>canvas.height || bird.y<0){
+gameOver();
+}
+
+}
+
+/* Game loop */
+
+function gameLoop(){
+
+if(gameRunning){
+update();
+requestAnimationFrame(gameLoop);
+}
+
+}
+
+/* Start */
+
+function startGame(){
+
+document.getElementById("startScreen").style.display="none";
+
+flySound.play();
+
+gameRunning=true;
+
+gameLoop();
+
+}
+
+/* Game over */
+
+function gameOver(){
+
+hitSound.play();
+
+flySound.pause();
+flySound.currentTime=0;
+
+gameRunning=false;
+
+document.getElementById("gameOver").style.display="block";
+
+}
+
+/* Restart */
+
+function restart(){
+
+bird.y=250;
+bird.velocity=0;
+
+pipes=[];
+score=0;
+
+pipeSpeed=2;
+
+particles=[];
+locationIndex=0;
+
+document.getElementById("score").innerText=0;
+
+document.getElementById("gameOver").style.display="none";
+
+flySound.play();
+
+gameRunning=true;
+
+gameLoop();
+
+}
+
+</script>
+
+</body>
+</html>
